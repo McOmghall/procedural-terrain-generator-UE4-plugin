@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include "ProceduralTerrainGeneratorEdMode.h"
 #include "CoreMinimal.h"
 #include "Toolkits/BaseToolkit.h"
+#include "EditorModeManager.h"
+#include "Landscape.h"
 
 class FProceduralTerrainGeneratorEdModeToolkit : public FModeToolkit
 {
@@ -13,14 +16,34 @@ public:
 	
 	/** FModeToolkit interface */
 	virtual void Init(const TSharedPtr<IToolkitHost>& InitToolkitHost) override;
+	/** end of FModeToolkit interface */
 
 	/** IToolkit interface */
-	virtual FName GetToolkitFName() const override;
-	virtual FText GetBaseToolkitName() const override;
-	virtual class FEdMode* GetEditorMode() const override;
-	virtual TSharedPtr<class SWidget> GetInlineContent() const override { return ToolkitWidget; }
+	virtual FName GetToolkitFName() const override
+	{
+		return FName("ProceduralTerrainGeneratorEdMode");
+	}
+
+	virtual FText GetBaseToolkitName() const override
+	{
+		return NSLOCTEXT("ProceduralTerrainGeneratorEdModeToolkit", "DisplayName", "ProceduralTerrainGeneratorEdMode Tool");
+	}
+
+	virtual class FEdMode* GetEditorMode() const override
+	{
+		return GLevelEditorModeTools().GetActiveMode(FProceduralTerrainGeneratorEdMode::EM_ProceduralTerrainGeneratorEdModeId);
+	}
+
+	virtual TSharedPtr<class SWidget> GetInlineContent() const override;
+	/** end of IToolkit interface */
 
 private:
+	const UClass* FilterClass = nullptr;
 
-	TSharedPtr<SWidget> ToolkitWidget;
+	void OnFilterClassChanged(const UClass* NewClass) 
+	{
+		FilterClass = NewClass;
+	}
+
+	static TArray<ALandscape*> GetSelectedTerrainActors();
 };

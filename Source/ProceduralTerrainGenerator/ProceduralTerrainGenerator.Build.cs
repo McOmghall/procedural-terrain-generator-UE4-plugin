@@ -41,7 +41,10 @@ public class ProceduralTerrainGenerator : ModuleRules
 				"InputCore",
 				"UnrealEd",
 				"LevelEditor",
-				// ... add private dependencies that you statically link with here ...	
+				"PropertyEditor",
+				"Landscape",
+				"LandscapeEditor",
+				"UMG",
 			}
 			);
 		

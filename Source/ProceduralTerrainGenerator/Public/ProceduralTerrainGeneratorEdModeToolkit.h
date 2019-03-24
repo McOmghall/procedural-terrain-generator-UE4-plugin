@@ -45,5 +45,5 @@ private:
 		FilterClass = NewClass;
 	}
 
-	static TArray<ALandscape*> GetSelectedTerrainActors();
+	static TArray<ALandscape*> GetSelectedLandscapeActors();
 };

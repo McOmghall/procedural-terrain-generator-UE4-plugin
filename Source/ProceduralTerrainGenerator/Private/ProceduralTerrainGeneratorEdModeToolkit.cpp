@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProceduralTerrainGeneratorEdModeToolkit.h"
+#include "LandscapeFilter.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Layout/SScaleBox.h"
@@ -15,7 +16,7 @@ FProceduralTerrainGeneratorEdModeToolkit::FProceduralTerrainGeneratorEdModeToolk
 {
 }
 
-TArray<ALandscape*> FProceduralTerrainGeneratorEdModeToolkit::GetSelectedTerrainActors()
+TArray<ALandscape*> FProceduralTerrainGeneratorEdModeToolkit::GetSelectedLandscapeActors()
 {
 	TArray<ALandscape*> rval;
 	GEditor->GetSelectedActors()->GetSelectedObjects<ALandscape>(rval);
@@ -62,7 +63,8 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 				SNew(SClassPropertyEntryBox)
 				.AllowAbstract(false)
 				.AllowNone(true)
-				.MetaClass(AStaticMeshActor::StaticClass())
+				.RequiredInterface(ULandscapeFilter::StaticClass())
+				.MetaClass(UObject::StaticClass())
 				.SelectedClass_Lambda([this]
 				{
 					return this->FilterClass;
@@ -77,7 +79,16 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 				SNew(SButton)
 				.IsEnabled_Lambda([this] 
 				{
-					return GetSelectedTerrainActors().Num() > 0 && this->FilterClass != nullptr;
+					return GetSelectedLandscapeActors().Num() > 0 && this->FilterClass != nullptr;
+				})
+				.OnClicked_Lambda([this] () -> FReply
+				{
+					ILandscapeFilter* CurrentFilterInstance = Cast<ILandscapeFilter>(this->FilterClass->ClassDefaultObject);
+					for (auto Terrain : GetSelectedLandscapeActors())
+					{
+						CurrentFilterInstance->ApplyFilter(Terrain);
+					}
+					return FReply::Handled();
 				})
 				.Text(LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.ActivateFilter", "Activate Filter"))
 			]

@@ -84,9 +84,12 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 				.OnClicked_Lambda([this] () -> FReply
 				{
 					ILandscapeFilter* CurrentFilterInstance = Cast<ILandscapeFilter>(this->FilterClass->ClassDefaultObject);
-					for (auto Terrain : GetSelectedLandscapeActors())
+					FString FilterName = CurrentFilterInstance->_getUObject()->GetClass()->GetName();
+					UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s"), *FilterName);
+					for (auto Landscape : GetSelectedLandscapeActors())
 					{
-						CurrentFilterInstance->ApplyFilter(Terrain);
+						UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s to Landscape %s"), *FilterName, *(Landscape->GetName()));
+						CurrentFilterInstance->ApplyFilter(Landscape);
 					}
 					return FReply::Handled();
 				})

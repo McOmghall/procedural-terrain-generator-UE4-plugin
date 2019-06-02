@@ -44,6 +44,7 @@ public class ProceduralTerrainGenerator : ModuleRules
 				"PropertyEditor",
 				"Landscape",
 				"LandscapeEditor",
+				"Foliage",
 				"UMG",
 			}
 			);

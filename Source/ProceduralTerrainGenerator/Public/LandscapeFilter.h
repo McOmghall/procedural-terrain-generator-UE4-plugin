@@ -3,6 +3,9 @@
 #include "Landscape.h"
 #include "LandscapeFilter.generated.h"
 
+
+DECLARE_LOG_CATEGORY_EXTERN(LandscapeFilter, Log, All);
+
 UINTERFACE()
 class PROCEDURALTERRAINGENERATOR_API ULandscapeFilter : public UInterface
 {

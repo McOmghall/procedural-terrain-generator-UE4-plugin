@@ -88,14 +88,20 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 				})
 				.OnClicked_Lambda([this] () -> FReply
 				{
+					const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.UndoRedoApplyFiltersName", "Apply Filter");
+					const FString TransactionNamespace = "ProceduralTerrainTool";
+
 					ULandscapeFilter* CurrentFilterInstance = NewObject<ULandscapeFilter>(GetTransientPackage(), FilterClass->ClassDefaultObject->GetClass());
 					FString FilterName = CurrentFilterInstance->GetClass()->GetName();
 					UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s"), *FilterName);
 					for (auto Landscape : GetSelectedLandscapeActors())
 					{
+						GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
 						UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s to Landscape %s"), *FilterName, *(Landscape->GetName()));
 						CurrentFilterInstance->ApplyFilter(Landscape, new FRandomStream(0xCAFE));
+						GEditor->EndTransaction();
 					}
+
 					return FReply::Handled();
 				})
 				.Text(LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.ActivateFilter", "Activate Filter"))

@@ -46,6 +46,7 @@ public:
 		{
 			FBounds Bounds(MinX, MinY, MaxX, MaxY);
 
+			// TODO: Partition in chunks to manage big terrain objects
 			TArray<uint16>* HeightData = new TArray<uint16>();
 			HeightData->SetNum((MaxX - MinX + 1) * (MaxY - MinY + 1), false);
 			Editor.GetHeightData(MinX, MinY, MaxX, MaxY, HeightData->GetData(), 0);

@@ -4,6 +4,7 @@
 
 #include "ProceduralTerrainGeneratorEdMode.h"
 #include "CoreMinimal.h"
+#include "PerlinNoiseAdderFilter.h"
 #include "Toolkits/BaseToolkit.h"
 #include "EditorModeManager.h"
 #include "Landscape.h"
@@ -38,12 +39,9 @@ public:
 	/** end of IToolkit interface */
 
 private:
-	const UClass* FilterClass = nullptr;
+	const UClass* FilterClass = UPerlinNoiseAdderFilter::StaticClass();
 
-	void OnFilterClassChanged(const UClass* NewClass) 
-	{
-		FilterClass = NewClass;
-	}
+	void OnFilterClassChanged(const UClass* NewClass);
 
 	static TArray<ALandscape*> GetSelectedLandscapeActors();
 };

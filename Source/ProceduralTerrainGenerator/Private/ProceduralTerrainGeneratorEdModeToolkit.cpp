@@ -16,6 +16,12 @@ FProceduralTerrainGeneratorEdModeToolkit::FProceduralTerrainGeneratorEdModeToolk
 {
 }
 
+void FProceduralTerrainGeneratorEdModeToolkit::OnFilterClassChanged(const UClass * NewClass)
+{
+	FilterClass = NewClass;
+
+}
+
 TArray<ALandscape*> FProceduralTerrainGeneratorEdModeToolkit::GetSelectedLandscapeActors()
 {
 	TArray<ALandscape*> rval;
@@ -62,12 +68,11 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 			[
 				SNew(SClassPropertyEntryBox)
 				.AllowAbstract(false)
-				.AllowNone(true)
-				.RequiredInterface(ULandscapeFilter::StaticClass())
-				.MetaClass(UObject::StaticClass())
+				.AllowNone(false)
+				.MetaClass(ULandscapeFilter::StaticClass())
 				.SelectedClass_Lambda([this]
 				{
-					return this->FilterClass;
+					return FilterClass;
 				})
 				.OnSetClass(this, &FProceduralTerrainGeneratorEdModeToolkit::OnFilterClassChanged)
 			]
@@ -79,17 +84,17 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 				SNew(SButton)
 				.IsEnabled_Lambda([this] 
 				{
-					return GetSelectedLandscapeActors().Num() > 0 && this->FilterClass != nullptr;
+					return GetSelectedLandscapeActors().Num() > 0 && FilterClass != nullptr;
 				})
 				.OnClicked_Lambda([this] () -> FReply
 				{
-					ILandscapeFilter* CurrentFilterInstance = Cast<ILandscapeFilter>(this->FilterClass->ClassDefaultObject);
-					FString FilterName = CurrentFilterInstance->_getUObject()->GetClass()->GetName();
+					ULandscapeFilter* CurrentFilterInstance = NewObject<ULandscapeFilter>(GetTransientPackage(), FilterClass->ClassDefaultObject->GetClass());
+					FString FilterName = CurrentFilterInstance->GetClass()->GetName();
 					UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s"), *FilterName);
 					for (auto Landscape : GetSelectedLandscapeActors())
 					{
 						UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s to Landscape %s"), *FilterName, *(Landscape->GetName()));
-						CurrentFilterInstance->ApplyFilter(Landscape);
+						CurrentFilterInstance->ApplyFilter(Landscape, new FRandomStream(0xCAFE));
 					}
 					return FReply::Handled();
 				})

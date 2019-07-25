@@ -23,5 +23,6 @@ public:
 	UPROPERTY(EditAnywhere)
 	uint32 WeightPerWalk = 100;
 
-	virtual bool ApplyFilter(ALandscape* Landscape, FRandomStream* RandomStream) override;
+	// Inherited via ULandscapeFilter
+	virtual bool ModifyHeightMap(TArray<uint16>* RawHeightMapData, FBounds Bounds, FRandomStream* RandomStream) override;
 };

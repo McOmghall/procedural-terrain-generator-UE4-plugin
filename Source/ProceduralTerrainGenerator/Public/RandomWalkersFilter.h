@@ -9,7 +9,7 @@
 /**
  * 
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class PROCEDURALTERRAINGENERATOR_API URandomWalkersFilter : public ULandscapeFilter
 {
 	GENERATED_BODY()

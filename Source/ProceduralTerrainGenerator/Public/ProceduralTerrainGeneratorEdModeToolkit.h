@@ -40,6 +40,7 @@ public:
 
 private:
 	const UClass* FilterClass = UPerlinNoiseAdderFilter::StaticClass();
+	UObject* CurrentManagedFilter = nullptr;
 
 	void OnFilterClassChanged(const UClass* NewClass);
 

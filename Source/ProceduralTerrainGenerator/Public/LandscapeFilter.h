@@ -14,7 +14,7 @@ class SVerticalBox;
 
 DECLARE_LOG_CATEGORY_EXTERN(LandscapeFilter, Log, All);
 
-UCLASS(BlueprintType, Abstract)
+UCLASS(BlueprintType, Blueprintable, Abstract, DefaultToInstanced, EditInlineNew)
 class PROCEDURALTERRAINGENERATOR_API ULandscapeFilter : public UObject
 {
 	GENERATED_BODY()
@@ -55,6 +55,7 @@ public:
 			{
 				Editor.SetHeightData(MinX, MinY, MaxX, MaxY, HeightData->GetData(), 0, true);
 				Editor.Flush();
+				Editor.RecalculateNormals();
 			}
 			return bModifiedHeightMap;
 		}
@@ -62,15 +63,4 @@ public:
 	};
 
 	virtual bool ModifyHeightMap(TArray<uint16>* RawHeightMapData, FBounds Bounds, FRandomStream* RandomStream) { return false; };
-};
-
-class SLandscapeFilterProperties : public SCompoundWidget
-{
-public:
-	SLATE_BEGIN_ARGS(SLandscapeFilterProperties)
-		: _MetaClass(UObject::StaticClass())
-	{}
-		/** The meta class that the selected class must be a child-of (required) */
-		SLATE_ATTRIBUTE(const UClass*, MetaClass)
-	SLATE_END_ARGS()
 };

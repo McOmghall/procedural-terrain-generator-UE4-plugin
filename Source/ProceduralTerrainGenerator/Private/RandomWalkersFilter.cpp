@@ -20,7 +20,7 @@ bool URandomWalkersFilter::ModifyHeightMap(TArray<uint16>* RawHeightMapData, FBo
 			if (X >= Bounds.MinX && X <= Bounds.MaxX && Y >= Bounds.MinY && Y <= Bounds.MaxY)
 			{
 				int CurrentIndex = (CurrentPoint.Y - Bounds.MinY) * (Bounds.MaxX - Bounds.MinX + 1) + (CurrentPoint.X - Bounds.MinX);
-				(*RawHeightMapData)[CurrentIndex] += WeightPerWalk;
+				(*RawHeightMapData)[CurrentIndex] = ULandscapeFilter::SafeOverflowAdd((*RawHeightMapData)[CurrentIndex], WeightPerWalk);
 			}
 
 			CurrentPoint = FIntPoint(CurrentPoint.X + RandomStream->RandRange(-1, 1), CurrentPoint.Y + RandomStream->RandRange(-1, 1));

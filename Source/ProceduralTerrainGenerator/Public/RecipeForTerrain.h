@@ -10,7 +10,7 @@
 
 #define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdModeToolkit"
 
-UCLASS(Blueprintable, BlueprintType)
+UCLASS(Blueprintable, BlueprintType, Abstract)
 class PROCEDURALTERRAINGENERATOR_API URecipeForTerrain : public ULandscapeFilter
 {
 	GENERATED_BODY()

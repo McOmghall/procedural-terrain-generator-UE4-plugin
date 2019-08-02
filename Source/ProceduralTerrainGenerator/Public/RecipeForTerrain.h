@@ -8,14 +8,13 @@
 #include "UnrealEd.h"
 #include "RecipeForTerrain.generated.h"
 
-#define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdModeToolkit"
 
-UCLASS(Blueprintable, BlueprintType, Abstract)
+UCLASS(Blueprintable, BlueprintType)
 class PROCEDURALTERRAINGENERATOR_API URecipeForTerrain : public ULandscapeFilter
 {
 	GENERATED_BODY()
 public:	
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite)
 	ALandscape* ApplyToLandscape = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

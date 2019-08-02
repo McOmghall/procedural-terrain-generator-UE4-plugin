@@ -2,9 +2,10 @@
 
 #include "RecipeForTerrain.h"
 
+#define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdModeToolkit"
+
 void URecipeForTerrain::ApplyRecipe()
 {
-
 	const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.UndoRedoApplyFiltersName", "Apply Filter");
 	const FString TransactionNamespace = "ProceduralTerrainTool";
 	FScopedSlowTask Progress(Filters.Num(), LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.ProgressDialogTitle", "Appliying filters..."));

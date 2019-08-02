@@ -26,8 +26,7 @@ public class ProceduralTerrainGenerator : ModuleRules
 			new string[]
 			{
 				"Core",
-				// ... add other public dependencies that you statically link with here ...
-			}
+            }
 			);
 			
 		
@@ -39,14 +38,17 @@ public class ProceduralTerrainGenerator : ModuleRules
 				"Slate",
 				"SlateCore",
 				"InputCore",
-				"UnrealEd",
 				"LevelEditor",
 				"PropertyEditor",
-				"Landscape",
+                "UnrealEd",
+                "AssetTools",
+                "Landscape",
 				"LandscapeEditor",
 				"Foliage",
 				"UMG",
-			}
+                "ContentBrowser",
+                "AssetRegistry",
+            }
 			);
 		
 		

@@ -7,6 +7,7 @@
 #include "PerlinNoiseAdderFilter.h"
 #include "Toolkits/BaseToolkit.h"
 #include "EditorModeManager.h"
+#include "IDetailsView.h"
 #include "Landscape.h"
 
 class FProceduralTerrainGeneratorEdModeToolkit : public FModeToolkit
@@ -40,7 +41,8 @@ public:
 
 private:
 	const UClass* FilterClass = UPerlinNoiseAdderFilter::StaticClass();
-	UObject* CurrentManagedFilter = nullptr;
+	ULandscapeFilter* CurrentManagedFilter = nullptr;
+	TSharedPtr<IDetailsView> CurrentFilterDetails;
 
 	void OnFilterClassChanged(const UClass* NewClass);
 

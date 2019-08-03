@@ -30,7 +30,7 @@ FProceduralTerrainGeneratorEdModeToolkit::FProceduralTerrainGeneratorEdModeToolk
 	OnFilterClassChanged(FilterClass);
 }
 
-void FProceduralTerrainGeneratorEdModeToolkit::OnFilterClassChanged(const UClass * NewClass)
+void FProceduralTerrainGeneratorEdModeToolkit::OnFilterClassChanged(const UClass* NewClass)
 {
 	FilterClass = NewClass;
 	CurrentManagedFilter = NewObject<ULandscapeFilter>(GetTransientPackage(), FilterClass->ClassDefaultObject->GetClass());
@@ -113,48 +113,51 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 					SNew(SButton)
 					.IsEnabled_Lambda([this]
 					{
-						return GetSelectedLandscapeActors().Num() > 0 && CurrentManagedFilter != nullptr;
+						return CurrentManagedFilter != nullptr;
 					})
 					.OnClicked_Lambda([this]() -> FReply
 					{
-
 						IContentBrowserSingleton& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser").Get();
 
 						// Get path from dialog
 						FSaveAssetDialogConfig SaveDialogConfig;
 						SaveDialogConfig.DefaultPath = "/Game";
 						SaveDialogConfig.DefaultAssetName = "NewRecipe";
-						SaveDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+						SaveDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::Disallow;
 						SaveDialogConfig.DialogTitleOverride = LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.SaveRecipeTitle", "Save New Terrain Recipe...");
 						FString Path = ContentBrowser.CreateModalSaveAssetDialog(SaveDialogConfig);
 						FString AbsolutePath;
 						Path = FPaths::ChangeExtension(Path, ".uasset");
 						FPackageName::TryConvertLongPackageNameToFilename(Path, AbsolutePath);
-						
-						// Create blueprint object to save
-						UPackage* Package = CreatePackage(nullptr, *FEditorFileUtils::ExtractPackageName(Path));
-						UBlueprint* BlueprintToSave = FKismetEditorUtilities::CreateBlueprint(URecipeForTerrain::StaticClass(), Package, *FPaths::GetBaseFilename(Path), EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
-						FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BlueprintToSave);
 
-						// Populate blueprint
+						UPackage* Package = CreatePackage(nullptr, *FEditorFileUtils::ExtractPackageName(Path));
+
+						// Create new copies from filter objects to persist
 						URecipeForTerrain* ToSave;
 						if (CurrentManagedFilter->IsA(URecipeForTerrain::StaticClass()))
 						{
-							ToSave = Cast<URecipeForTerrain>(CurrentManagedFilter);
+							ToSave = Cast<URecipeForTerrain>(NewObject<URecipeForTerrain>(Package, CurrentManagedFilter->GetClass(), NAME_None, EObjectFlags::RF_Standalone, CurrentManagedFilter));
 						}
 						else
 						{
-							ToSave = NewObject<URecipeForTerrain>(GetTransientPackage(), URecipeForTerrain::StaticClass());
-							ToSave->Filters.Add(CurrentManagedFilter);
+							ToSave = NewObject<URecipeForTerrain>(Package, URecipeForTerrain::StaticClass(), NAME_None, EObjectFlags::RF_Standalone);
+							ToSave->Filters.Add(NewObject<ULandscapeFilter>(Package, CurrentManagedFilter->GetClass(), NAME_None, EObjectFlags::RF_Standalone, CurrentManagedFilter));
 						}
 						ToSave->ApplyToLandscape = nullptr;
-						UObject* ActualToSave = NewObject<URecipeForTerrain>(Package, URecipeForTerrain::StaticClass(), NAME_None, EObjectFlags::RF_Standalone, ToSave, true);;
-						BlueprintToSave->GeneratedClass->ClassDefaultObject = ActualToSave;
-						BlueprintToSave->archet
+
+						// Create blueprint object to save
+						UBlueprint* BlueprintToSave = FKismetEditorUtilities::CreateBlueprint(URecipeForTerrain::StaticClass(), Package, *FPaths::GetBaseFilename(Path), EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+						UObject* BlueprintCDO = BlueprintToSave->GeneratedClass->GetDefaultObject();
+						const auto CopyOptions = (EditorUtilities::ECopyOptions::Type)(EditorUtilities::ECopyOptions::OnlyCopyEditOrInterpProperties | EditorUtilities::ECopyOptions::PropagateChangesToArchetypeInstances);
+						for (TFieldIterator<UProperty> PropIt(URecipeForTerrain::StaticClass(), EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
+						{
+							UProperty* Property = *PropIt;
+							EditorUtilities::CopySingleProperty(ToSave, BlueprintCDO, Property);
+						}
 
 						// Actually save the blueprint
 						FAssetRegistryModule::AssetCreated(BlueprintToSave);
-						FAssetRegistryModule::AssetCreated(ActualToSave);
+						FAssetRegistryModule::AssetCreated(ToSave);
 						BlueprintToSave->MarkPackageDirty();
 
 						return FReply::Handled();

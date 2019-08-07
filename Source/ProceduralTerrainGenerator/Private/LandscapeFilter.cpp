@@ -1,14 +1,25 @@
 #include "LandscapeFilter.h"
+#include "ProceduralTerrainGenerator.h"
 
-bool ULandscapeFilter::ApplyFilter(ALandscape * Landscape, FRandomStream * RandomStream)
+#undef LOCTEXT_NAMESPACE
+#define LOCTEXT_NAMESPACE "ULandscapeFilter"
+
+bool ULandscapeFilter::ApplyFilter(ALandscape * Landscape, FRandomStream* RandomStream)
 {
 	if (!bApplyFilter)
 	{
-		UE_LOG(LandscapeFilter, Log, TEXT("%s: Not Applying filter to Terrain %s by config bApplyFilter"), *(GetClass()->GetName()), *(Landscape->GetName()));
+		UE_LOG(LandscapeFilter, Log, TEXT("%s: Not Applying filter to Terrain %s by config bApplyFilter"), *(GetName()), *(Landscape->GetName()));
 		return false;
 	}
 
-	UE_LOG(LandscapeFilter, Log, TEXT("%s: Applying filter to Terrain %s"), *(GetClass()->GetName()), *(Landscape->GetName()));
+	FRandomStream* InternalRandomStream = RandomStream;
+	if (bOverrideSeed) 
+	{
+		UE_LOG(LandscapeFilter, Log, TEXT("%s: Overriding seed from %x to %x"), *(GetName()), RandomStream->GetCurrentSeed(), RandomSeed);
+		InternalRandomStream = new FRandomStream(RandomSeed);
+	}
+
+	UE_LOG(LandscapeFilter, Log, TEXT("%s: Applying filter to Terrain %s with seed %x"), *(GetName()), *(Landscape->GetName()), InternalRandomStream->GetCurrentSeed());
 
 	ULandscapeInfo* LandscapeInfo = Landscape->CreateLandscapeInfo();
 	FLandscapeEditDataInterface Editor(LandscapeInfo);
@@ -51,3 +62,30 @@ uint16 ULandscapeFilter::SafeOverflowAdd(int32 A, int32 B)
 		return A + B;
 	}
 };
+
+
+const FText TransactionTitle = LOCTEXT("ULandscapeFilter.UndoRedoApplyFiltersName", "Apply Filter");
+const FString TransactionNamespace = "ProceduralTerrainTool";
+
+bool ULandscapeFilter::ApplyFilterStatic(ULandscapeFilter* Filter, ALandscape* Landscape)
+{
+	GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
+	UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s to Landscape %s"), *Filter->GetName(), *Landscape->GetName());
+	bool bRval = Filter->ApplyFilter(Landscape, new FRandomStream(FDateTime::Now().GetMillisecond()));
+	GEditor->EndTransaction();
+	return bRval;
+}
+
+
+void ULandscapeFilter::ApplyFilterAssetToLandscapeStatic(UObject* FilterAsset, AActor* Landscape)
+{
+	ULandscapeFilter* InternalFilter = Cast<ULandscapeFilter>(FilterAsset);
+	ALandscape* InternalLandscape = Cast<ALandscape>(Landscape);
+
+	if (InternalFilter && InternalLandscape)
+	{
+		ApplyFilterStatic(InternalFilter, InternalLandscape);
+	}
+}
+
+#undef LOCTEXT_NAMESPACE

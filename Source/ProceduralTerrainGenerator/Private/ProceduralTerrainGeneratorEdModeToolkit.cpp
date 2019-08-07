@@ -20,7 +20,6 @@
 
 #define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdModeToolkit"
 
-
 FProceduralTerrainGeneratorEdModeToolkit::FProceduralTerrainGeneratorEdModeToolkit()
 {
 	FDetailsViewArgs DetailArgs;
@@ -129,7 +128,7 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 						FString AbsolutePath;
 						Path = FPaths::ChangeExtension(Path, ".uasset");
 						FPackageName::TryConvertLongPackageNameToFilename(Path, AbsolutePath);
-
+						
 						UPackage* Package = CreatePackage(nullptr, *FEditorFileUtils::ExtractPackageName(Path));
 
 						// Create new copies from filter objects to persist
@@ -175,17 +174,11 @@ TSharedPtr<class SWidget> FProceduralTerrainGeneratorEdModeToolkit::GetInlineCon
 					})
 					.OnClicked_Lambda([this]() -> FReply
 					{
-						const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.UndoRedoApplyFiltersName", "Apply Filter");
-						const FString TransactionNamespace = "ProceduralTerrainTool";
-
 						FString FilterName = CurrentManagedFilter->GetClass()->GetName();
 						UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s"), *FilterName);
 						for (auto Landscape : GetSelectedLandscapeActors())
 						{
-							GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
-							UE_LOG(ProceduralTerrainGenerator, Log, TEXT("Applying filter %s to Landscape %s"), *FilterName, *(Landscape->GetName()));
-							CurrentManagedFilter->ApplyFilter(Landscape, new FRandomStream(0xCAFE));
-							GEditor->EndTransaction();
+							ULandscapeFilter::ApplyFilterStatic(CurrentManagedFilter, Landscape);
 						}
 
 						return FReply::Handled();

@@ -40,8 +40,17 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bApplyFilter = true;
 
+	UPROPERTY(EditAnywhere)
+	bool bOverrideSeed = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 RandomSeed = 0xCAFE1EAD;
+
 	virtual bool ApplyFilter(ALandscape* Landscape, FRandomStream* RandomStream);
 	virtual bool ModifyHeightMap(TArray<uint16>* RawHeightMapData, FBounds Bounds, FRandomStream* RandomStream) { return false; };
 
 	static uint16 SafeOverflowAdd(int32 A, int32 B);
+
+	static bool ApplyFilterStatic(ULandscapeFilter* Filter, ALandscape* Landscape);
+	static void ApplyFilterAssetToLandscapeStatic(UObject* FilterAsset, AActor* Landscape);
 };

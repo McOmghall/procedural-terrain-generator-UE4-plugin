@@ -1,8 +1,14 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "RecipeForTerrain.h"
+#include "FlattenFilter.h"
 
 #define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdModeToolkit"
+
+URecipeForTerrain::URecipeForTerrain(const FObjectInitializer& Init)
+{
+	Filters.Add(NewObject<UFlattenFilter>());
+}
 
 void URecipeForTerrain::ApplyRecipe()
 {

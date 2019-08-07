@@ -13,12 +13,11 @@ UCLASS(Blueprintable, BlueprintType)
 class PROCEDURALTERRAINGENERATOR_API URecipeForTerrain : public ULandscapeFilter
 {
 	GENERATED_BODY()
-public:	
+public:
+	URecipeForTerrain(const FObjectInitializer& Init);
+
 	UPROPERTY(BlueprintReadWrite)
 	ALandscape* ApplyToLandscape = nullptr;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int32 RandomSeed = 0xCAFE1EAD;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced)
 	TArray<ULandscapeFilter*> Filters;

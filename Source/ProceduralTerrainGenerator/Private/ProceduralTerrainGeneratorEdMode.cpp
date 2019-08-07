@@ -5,6 +5,9 @@
 #include "Toolkits/ToolkitManager.h"
 #include "EditorModeManager.h"
 
+#undef LOCTEXT_NAMESPACE
+#define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorEdMode"
+
 const FEditorModeID FProceduralTerrainGeneratorEdMode::EM_ProceduralTerrainGeneratorEdModeId = TEXT("EM_ProceduralTerrainGeneratorEdMode");
 
 FProceduralTerrainGeneratorEdMode::FProceduralTerrainGeneratorEdMode()
@@ -35,7 +38,6 @@ void FProceduralTerrainGeneratorEdMode::Exit()
 		FToolkitManager::Get().CloseToolkit(Toolkit.ToSharedRef());
 		Toolkit.Reset();
 	}
-
 	// Call base Exit method to ensure proper cleanup
 	FEdMode::Exit();
 }
@@ -45,6 +47,4 @@ bool FProceduralTerrainGeneratorEdMode::UsesToolkits() const
 	return true;
 }
 
-
-
-
+#undef LOCTEXT_NAMESPACE

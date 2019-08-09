@@ -20,6 +20,7 @@ public:
 	/** end IModuleInterface implementation */
 
 	static void AddMenuEntry(FMenuBuilder& MenuBuilder, TArray<FAssetData> SelectedAssets);
-	static void FillSubmenu(FMenuBuilder& MenuBuilder, TArray<ULandscapeFilter*> LandscapeFilters);
+	static void FillSubmenuApplyFilters(FMenuBuilder& MenuBuilder, TArray<ULandscapeFilter*> LandscapeFilters);
 	static void ApplyFiltersToLandscape(TArray<ULandscapeFilter*> LandscapeFilters, ALandscape* Landscape);
+	static void CreateChildBPFromFilter(ULandscapeFilter* Filter);
 };

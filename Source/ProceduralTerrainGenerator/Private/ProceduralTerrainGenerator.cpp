@@ -2,10 +2,21 @@
 
 #include "ProceduralTerrainGenerator.h"
 #include "ProceduralTerrainGeneratorEdMode.h"
+#include "RecipeForTerrain.h"
+#include "FileHelper.h"
 #include "MultiBoxExtender.h"
 #include "MultiBoxBuilder.h"
 #include "ContentBrowserModule.h"
+#include "Engine.h"
 #include "EngineUtils.h"
+#include "ModuleManager.h"
+#include "IContentBrowserSingleton.h"
+#include "KismetEditorUtilities.h"
+#include "ContentBrowserModule.h"
+#include "ComponentAssetBroker.h"
+#include "BlueprintEditorUtils.h"
+#include "AssetRegistryModule.h"
+#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FProceduralTerrainGeneratorModule"
 
@@ -41,31 +52,47 @@ void FProceduralTerrainGeneratorModule::ShutdownModule()
 
 void FProceduralTerrainGeneratorModule::AddMenuEntry(FMenuBuilder& MenuBuilder, TArray<FAssetData> SelectedAssets)
 {
-	// Create Section
-	MenuBuilder.BeginSection("CustomMenu", TAttribute<FText>(FText::FromString("Procedural Terrain Generator")));
+	// Get selected filters
+	TArray<ULandscapeFilter*> Filters;
+	for (FAssetData Asset : SelectedAssets)
 	{
-		TArray<ULandscapeFilter*> Filters;
-
-		for (FAssetData Asset : SelectedAssets)
+		UObject* AssetObject = Asset.GetAsset();
+		if (AssetObject->IsA(ULandscapeFilter::StaticClass()))
 		{
-			if (UBlueprint* BP = Cast<UBlueprint>(Asset.GetAsset()))
+			Filters.Add(Cast<ULandscapeFilter>(AssetObject));
+		}
+		else if (AssetObject->IsA(UBlueprint::StaticClass()))
+		{
+			if (ULandscapeFilter* Filter = Cast<ULandscapeFilter>(Cast<UBlueprint>(AssetObject)->GeneratedClass->GetDefaultObject(true)))
 			{
-				if (ULandscapeFilter* Filter = Cast<ULandscapeFilter>(BP->GeneratedClass->GetDefaultObject(true)))
-				{
-					Filters.Add(Filter);
-				}
+				Filters.Add(Filter);
 			}
 		}
+		else if (TSubclassOf<ULandscapeFilter> AssetObjectClass = Cast<UClass>(AssetObject))
+		{
+			if (AssetObjectClass->IsChildOf(ULandscapeFilter::StaticClass()))
+			{
+				Filters.Add(Cast<ULandscapeFilter>(AssetObjectClass->ClassDefaultObject));
+			}
+		}
+	}
 
+	// Create Section
+	MenuBuilder.BeginSection("PTG_Section", TAttribute<FText>(FText::FromString("Procedural Terrain Generator")));
+	{
 		if (Filters.Num() > 0)
 		{
-			MenuBuilder.AddSubMenu(FText::FromString("Apply Filters/Recipes"), FText::FromString("Apply these filters to the selected Landscape actors"), FNewMenuDelegate::CreateStatic(&FProceduralTerrainGeneratorModule::FillSubmenu, Filters));
+			// Apply filter to terrains in current opened world section
+			MenuBuilder.AddSubMenu(FText::FromString("Apply Filters/Recipes"), FText::FromString("Apply these filters to the selected Landscape actors"), FNewMenuDelegate::CreateStatic(&FProceduralTerrainGeneratorModule::FillSubmenuApplyFilters, Filters));
+			
+			// Create new filter from first selected filter
+			MenuBuilder.AddMenuEntry(FText::FromString("Create BP child from" + Filters[0]->GetName()), TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.CreateChildTooltip", "Make a data blueprint to customize filter params")), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::CreateChildBPFromFilter, Filters[0])));
 		}
 	}
 	MenuBuilder.EndSection();
 }
 
-void FProceduralTerrainGeneratorModule::FillSubmenu(FMenuBuilder& MenuBuilder, TArray<ULandscapeFilter*> LandscapeFilters)
+void FProceduralTerrainGeneratorModule::FillSubmenuApplyFilters(FMenuBuilder& MenuBuilder, TArray<ULandscapeFilter*> LandscapeFilters)
 {
 	TArray<ALandscape*> Landscapes;
 
@@ -80,7 +107,7 @@ void FProceduralTerrainGeneratorModule::FillSubmenu(FMenuBuilder& MenuBuilder, T
 
 	if (Landscapes.Num() <= 0)
 	{
-		MenuBuilder.AddMenuEntry(TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.NoLandscapes", "There are no landscapes in the opened world")), TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.NoLandscapes", "There are no landscapes in the opened world")), FSlateIcon(), FUIAction());
+		MenuBuilder.AddMenuEntry(TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.NoLandscapes", "There are no landscapes in the opened world")), TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.NoLandscapes", "There are no landscapes in the opened world")), FSlateIcon(), FUIAction(), NAME_None, EUserInterfaceActionType::None);
 	}
 
 	for (ALandscape* Landscape : Landscapes)
@@ -94,7 +121,70 @@ void FProceduralTerrainGeneratorModule::ApplyFiltersToLandscape(TArray<ULandscap
 	FRandomStream* Stream = new FRandomStream(0xCAFE1EAD);
 	for (ULandscapeFilter* Filter : LandscapeFilters)
 	{
+		const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorModule.UndoRedoApplyFiltersName", "Apply Recipe");
+		const FString TransactionNamespace = "ProceduralTerrainTool";
+		GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
 		Filter->ApplyFilter(Landscape, Stream);
+		GEditor->EndTransaction();
+	}
+}
+
+void FProceduralTerrainGeneratorModule::CreateChildBPFromFilter(ULandscapeFilter* Filter)
+{
+	IContentBrowserSingleton& ContentBrowser = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser").Get();
+
+	// Get path from dialog
+	FSaveAssetDialogConfig SaveDialogConfig;
+	SaveDialogConfig.DefaultPath = "/Game";
+	SaveDialogConfig.DefaultAssetName = "NewRecipe";
+	SaveDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::Disallow;
+	SaveDialogConfig.DialogTitleOverride = LOCTEXT("FProceduralTerrainGeneratorEdModeToolkit.SaveRecipeTitle", "Save New Terrain Recipe...");
+	FString Path = ContentBrowser.CreateModalSaveAssetDialog(SaveDialogConfig);
+
+	if (!Path.IsEmpty())
+	{
+		FString AbsolutePath;
+		Path = FPaths::ChangeExtension(Path, ".uasset");
+		FPackageName::TryConvertLongPackageNameToFilename(Path, AbsolutePath);
+
+		UPackage* Package = CreatePackage(nullptr, *FEditorFileUtils::ExtractPackageName(Path));
+
+		// Create new copies from filter objects to persist
+		URecipeForTerrain* ToSave;
+		FObjectDuplicationParameters DuplicationParams(Filter, Package);
+		DuplicationParams.ApplyFlags = EObjectFlags::RF_Standalone;
+		DuplicationParams.FlagMask = EObjectFlags::RF_Standalone;
+		DuplicationParams.DuplicateMode = EDuplicateMode::Normal;
+		ULandscapeFilter* ManagedFilter = Cast<ULandscapeFilter>(StaticDuplicateObjectEx(DuplicationParams));
+		if (Filter->IsA(URecipeForTerrain::StaticClass()))
+		{
+			ToSave = Cast<URecipeForTerrain>(ManagedFilter);
+		}
+		else
+		{
+			ToSave = NewObject<URecipeForTerrain>(Package, URecipeForTerrain::StaticClass(), NAME_None, EObjectFlags::RF_Standalone);
+			ToSave->Filters.Add(ManagedFilter);
+		}
+		ToSave->ApplyToLandscape = nullptr;
+		ToSave->AddToRoot();
+
+		// Create blueprint object to save
+		UBlueprint* BlueprintToSave = FKismetEditorUtilities::CreateBlueprint(URecipeForTerrain::StaticClass(), Package, *FPaths::GetBaseFilename(Path), EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+		UObject* CDO = BlueprintToSave->GeneratedClass->GetDefaultObject();
+		UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyPropertiesParams;
+		CopyPropertiesParams.bAggressiveDefaultSubobjectReplacement = true;
+		CopyPropertiesParams.bClearReferences = true;
+		CopyPropertiesParams.bDoDelta = false;
+		CopyPropertiesParams.bReplaceObjectClassReferences = true;
+		UEngine::CopyPropertiesForUnrelatedObjects(ToSave, CDO, CopyPropertiesParams);
+
+		// Actually save the blueprint
+		FAssetRegistryModule::AssetCreated(BlueprintToSave);
+		FAssetRegistryModule::AssetCreated(ToSave);
+		BlueprintToSave->MarkPackageDirty();
+		TArray<UObject*> Focus;
+		Focus.Add(BlueprintToSave);
+		GEditor->SyncBrowserToObjects(Focus, true);
 	}
 }
 

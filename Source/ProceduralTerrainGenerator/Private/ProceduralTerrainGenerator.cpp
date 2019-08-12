@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ProceduralTerrainGenerator.h"
-#include "ProceduralTerrainGeneratorEdMode.h"
 #include "RecipeForTerrain.h"
 #include "FileHelper.h"
 #include "MultiBoxExtender.h"
 #include "MultiBoxBuilder.h"
 #include "ContentBrowserModule.h"
+#include "LevelEditor.h"
 #include "Engine.h"
 #include "EngineUtils.h"
 #include "ModuleManager.h"
@@ -23,30 +23,34 @@
 DEFINE_LOG_CATEGORY(ProceduralTerrainGenerator);
 
 
-FContentBrowserMenuExtender_SelectedAssets ApplyFilterMenuExtender;
+FContentBrowserMenuExtender_SelectedAssets ContentBrowserContextMenuExtender;
+FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors LevelEditorContextMenuExtender;
 
 void FProceduralTerrainGeneratorModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
-	FEditorModeRegistry::Get().RegisterMode<FProceduralTerrainGeneratorEdMode>(FProceduralTerrainGeneratorEdMode::EM_ProceduralTerrainGeneratorEdModeId, LOCTEXT("ProceduralTerrainGeneratorEdModeName", "ProceduralTerrainGeneratorEdMode"), FSlateIcon(), true);
-
 	// Register Content Browser context menu extensions 
-	ApplyFilterMenuExtender = FContentBrowserMenuExtender_SelectedAssets::CreateLambda([this](const TArray<FAssetData>& SelectedAssets) -> TSharedRef<FExtender>
+	ContentBrowserContextMenuExtender = FContentBrowserMenuExtender_SelectedAssets::CreateLambda([this](const TArray<FAssetData>& SelectedAssets) -> TSharedRef<FExtender>
 	{
 		TSharedPtr<FExtender> ExtensionForContentBrowser = MakeShareable(new FExtender);
 		ExtensionForContentBrowser->AddMenuExtension(FName("CommonAssetActions"), EExtensionHook::After, TSharedPtr<FUICommandList>(), FMenuExtensionDelegate::CreateStatic(&FProceduralTerrainGeneratorModule::AddMenuEntry, SelectedAssets));
 		return ExtensionForContentBrowser.ToSharedRef();
 	});
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-	ContentBrowserModule.GetAllAssetViewContextMenuExtenders().Add(ApplyFilterMenuExtender);
+	ContentBrowserModule.GetAllAssetViewContextMenuExtenders().Add(ContentBrowserContextMenuExtender);
+
+	// Register Level Editor context menu extensions 
+	LevelEditorContextMenuExtender = FLevelEditorModule::FLevelViewportMenuExtender_SelectedActors::CreateLambda([this](const TSharedRef<FUICommandList> Commands, const TArray<AActor*>& SelectedAssets) -> TSharedRef<FExtender>
+	{
+		TSharedPtr<FExtender> ExtensionForLevelEditor = MakeShareable(new FExtender);
+		ExtensionForLevelEditor->AddMenuExtension(FName("ActorControl"), EExtensionHook::After, TSharedPtr<FUICommandList>(), FMenuExtensionDelegate::CreateStatic(&FProceduralTerrainGeneratorModule::AddLevelMenuEntry, SelectedAssets));
+		return ExtensionForLevelEditor.ToSharedRef();
+	});
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	LevelEditorModule.GetAllLevelViewportContextMenuExtenders().Add(LevelEditorContextMenuExtender);
 }
 
 void FProceduralTerrainGeneratorModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
-	FEditorModeRegistry::Get().UnregisterMode(FProceduralTerrainGeneratorEdMode::EM_ProceduralTerrainGeneratorEdModeId);
-	FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 }
 
 
@@ -86,7 +90,41 @@ void FProceduralTerrainGeneratorModule::AddMenuEntry(FMenuBuilder& MenuBuilder, 
 			MenuBuilder.AddSubMenu(FText::FromString("Apply Filters/Recipes"), FText::FromString("Apply these filters to the selected Landscape actors"), FNewMenuDelegate::CreateStatic(&FProceduralTerrainGeneratorModule::FillSubmenuApplyFilters, Filters));
 			
 			// Create new filter from first selected filter
-			MenuBuilder.AddMenuEntry(FText::FromString("Create BP child from" + Filters[0]->GetName()), TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.CreateChildTooltip", "Make a data blueprint to customize filter params")), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::CreateChildBPFromFilter, Filters[0])));
+			MenuBuilder.AddMenuEntry(FText::FromString("Create BP Recipe from " + Filters[0]->GetName()), TAttribute<FText>(LOCTEXT("FProceduralTerrainGeneratorModule.CreateChildTooltip", "Make a data blueprint to customize filter params")), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::CreateChildBPFromFilter, Filters[0])));
+		}
+	}
+	MenuBuilder.EndSection();
+}
+
+void FProceduralTerrainGeneratorModule::AddLevelMenuEntry(FMenuBuilder& MenuBuilder, TArray<AActor*> SelectedActors)
+{
+	// Create Section
+	MenuBuilder.BeginSection("PTG_Section_LevelEditor", TAttribute<FText>(FText::FromString("Procedural Terrain Generator")));
+	{
+		TArray<ALandscape*> SelectedLandscapes;
+		for (AActor* Actor : SelectedActors)
+		{
+			if (ALandscape* Landscape = Cast<ALandscape>(Actor))
+			{
+				SelectedLandscapes.Add(Landscape);
+			}
+		}
+
+		if (SelectedLandscapes.Num() > 0)
+		{
+			MenuBuilder.AddSubMenu(FText::FromString("Apply Filters/Recipes"), FText::FromString("Apply these filters to the selected Landscape actors"), FNewMenuDelegate::CreateLambda([SelectedLandscapes](FMenuBuilder& MenuBuilder) {
+				for (TObjectIterator<UClass> It; It; ++It)
+				{    // Ignore deprecated
+					if (It->HasAnyClassFlags(CLASS_Deprecated | CLASS_NewerVersionExists | CLASS_Abstract) || FKismetEditorUtilities::IsClassABlueprintSkeleton(*It) || !It->IsChildOf(ULandscapeFilter::StaticClass()))
+					{
+						continue;
+					}
+
+					TArray<ULandscapeFilter*> AuxFilters;
+					AuxFilters.Add(Cast<ULandscapeFilter>(It->GetDefaultObject()));
+					MenuBuilder.AddMenuEntry(FText::FromName(It->GetFName()), FText::FromString(It->GetName()), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::ApplyFiltersToLandscapes, AuxFilters, SelectedLandscapes)));
+				}
+			}));
 		}
 	}
 	MenuBuilder.EndSection();
@@ -112,20 +150,25 @@ void FProceduralTerrainGeneratorModule::FillSubmenuApplyFilters(FMenuBuilder& Me
 
 	for (ALandscape* Landscape : Landscapes)
 	{
-		MenuBuilder.AddMenuEntry(FText::FromString(Landscape->GetName()), FText::FromString(Landscape->GetName()), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::ApplyFiltersToLandscape, LandscapeFilters, Landscape)));
+		TArray<ALandscape*> AuxLandscapes;
+		AuxLandscapes.Add(Landscape);
+		MenuBuilder.AddMenuEntry(FText::FromString(Landscape->GetName()), FText::FromString(Landscape->GetName()), FSlateIcon(), FUIAction(FExecuteAction::CreateStatic(&FProceduralTerrainGeneratorModule::ApplyFiltersToLandscapes, LandscapeFilters, AuxLandscapes)));
 	}
 }
 
-void FProceduralTerrainGeneratorModule::ApplyFiltersToLandscape(TArray<ULandscapeFilter*> LandscapeFilters, ALandscape* Landscape)
+void FProceduralTerrainGeneratorModule::ApplyFiltersToLandscapes(TArray<ULandscapeFilter*> LandscapeFilters, TArray<ALandscape*> Landscapes)
 {
 	FRandomStream* Stream = new FRandomStream(0xCAFE1EAD);
 	for (ULandscapeFilter* Filter : LandscapeFilters)
 	{
-		const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorModule.UndoRedoApplyFiltersName", "Apply Recipe");
-		const FString TransactionNamespace = "ProceduralTerrainTool";
-		GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
-		Filter->ApplyFilter(Landscape, Stream);
-		GEditor->EndTransaction();
+		for (ALandscape* Landscape : Landscapes)
+		{
+			const FText TransactionTitle = LOCTEXT("FProceduralTerrainGeneratorModule.UndoRedoApplyFiltersName", "Apply Recipe");
+			const FString TransactionNamespace = "ProceduralTerrainTool";
+			GEditor->BeginTransaction(*TransactionNamespace, TransactionTitle, Landscape);
+			Filter->ApplyFilter(Landscape, Stream);
+			GEditor->EndTransaction();
+		}
 	}
 }
 
